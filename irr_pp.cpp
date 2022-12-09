@@ -5,13 +5,6 @@
 #include <unistd.h>
 using namespace std;
 
-int sum(int a, int b){
-	usleep(1000);
-	a=a-2;
-	b=b+2;
-	return a+b;
-}
-
 // function converts polynomial to binary string of length n starting from x^0
 string poly_binary(string s, int n)
 {
@@ -247,12 +240,14 @@ string timeForSum1(string x, string irr, string pp, int n1)
 	"mov %%eax, %1\n\t": "=r" (cycles_high), "=r" 
 	(cycles_low):: "%rax", "%rbx", "%rcx", "%rdx");
 	
-    // srand(time(0));
-	// int a=rand()%100000;
-	// int b=rand()%100000;
-	// sum(a,b);
-	string ans = solve(x, irr, pp, n1);
-	
+    struct timespec requestStart, requestEnd;
+    clock_gettime(CLOCK_REALTIME, &requestStart);
+    
+    cout<<"Timing measures started, now we call the function\n"<<endl;
+    string ans = solve(x, irr, pp, n1);
+    cout<<"Function execution finished.\n";
+
+    clock_gettime(CLOCK_REALTIME, &requestEnd);
     asm volatile(
 	"LFENCE\n\t"
 		"RDTSCP\n\t"
@@ -260,51 +255,18 @@ string timeForSum1(string x, string irr, string pp, int n1)
         "mov %%eax, %1\n\t"
         "CPUID\n\t": "=r" (cycles_high1), "=r"
         (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
-	
+    
+    
+    double accum = ( requestEnd.tv_sec - requestStart.tv_sec ) + (( requestEnd.tv_nsec - requestStart.tv_nsec ) / 1e9);
+    printf( "The time taken to execute code :%lf msec\n", accum*1000);
 
 	uint64_t start, end;
 	start = ( ((uint64_t)cycles_high << 32) | cycles_low );
 	end = ( ((uint64_t)cycles_high1 << 32) | cycles_low1 );
-	int timeTaken = end - start;
-	printf("\n function execution time is %d clock cycles\n", timeTaken);
+	uint64_t cyclesElapsed = end - start;
+	printf("Clock cycles elapsed during execution: %ld\n", cyclesElapsed);
+
 	return ans;
-}
-
-static int timeForSumN(int n)
-{
-	unsigned long flags;
-	uint64_t start, end;
-	int variable = 0;
-	unsigned cycles_low, cycles_high, cycles_low1, cycles_high1;
-
-	asm volatile(
-		"LFENCE\n\t"
-	"CPUID\n\t"
-	"RDTSC\n\t"
-	"mov %%edx, %0\n\t"
-	"mov %%eax, %1\n\t": "=r" (cycles_high), "=r" 
-	(cycles_low):: "%rax", "%rbx", "%rcx", "%rdx");
-
-	for(int i=0;i<n;i++){
-		srand(time(0));
-		int a=rand()%100000;
-		int b=rand()%100000;
-		sum(a,b);
-	}
-
-	asm volatile(
-		"LFENCE\n\t"
-		"RDTSCP\n\t"
-        "mov %%edx, %0\n\t"
-        "mov %%eax, %1\n\t"
-        "CPUID\n\t": "=r" (cycles_high1), "=r"
-        (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
-	
-	start = ( ((uint64_t)cycles_high << 32) | cycles_low );
-	end = ( ((uint64_t)cycles_high1 << 32) | cycles_low1 );
-	uint64_t timeTaken = end - start;
-	printf("\n function execution time %d times is %d clock cycles\n", n,timeTaken);
-	return timeTaken;
 }
 
 int main(int argv, char **argc)
@@ -341,13 +303,7 @@ int main(int argv, char **argc)
             break;
         string ans = timeForSum1(x, irr, pp, n1);
         cout << "Output: " << ans << endl;
-        cout << "Input :";
+        cout << "\nInput :";
 	}
-
-	//uint64_t t1 = timeForSum1();
-	// uint64_t t2 = timeForSumN(numberOfIterations);
-	// float absDifference=abs(float(t1 - t2/n));
-	// float percentDiffernce = absDifference/t2*100;
-	// cout<<"Percentage difference = "<<percentDiffernce<<endl;
 	return 0;
 }
